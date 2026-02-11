@@ -23,7 +23,10 @@
                 <span>📄</span>
                 <span>DocFlow AI</span>
             </div>
-            <ul class="navbar-menu">
+            <button class="navbar-toggle" id="navToggle" aria-label="Toggle navigation">
+                ☰
+            </button>
+            <ul class="navbar-menu" id="navMenu">
                 <li><a href="dashboard.html" class="navbar-link">Dashboard</a></li>
                 <li><a href="upload.html" class="navbar-link">Upload</a></li>
                 <li><a href="review.html" class="navbar-link active">Review</a></li>
@@ -455,6 +458,30 @@
                 UI.showToast(error.message, 'error');
             }
         }
+
+        // Mobile Navigation Toggle
+        document.getElementById('navToggle')?.addEventListener('click', function () {
+            const navMenu = document.getElementById('navMenu');
+            navMenu.classList.toggle('active');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function (event) {
+            const navMenu = document.getElementById('navMenu');
+            const navToggle = document.getElementById('navToggle');
+            const navbar = document.querySelector('.navbar');
+
+            if (navMenu && navToggle && !navbar.contains(event.target)) {
+                navMenu.classList.remove('active');
+            }
+        });
+
+        // Close menu when clicking a link
+        document.querySelectorAll('.navbar-link').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('navMenu')?.classList.remove('active');
+            });
+        });
     </script>
 </body>
 
