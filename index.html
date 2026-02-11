@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - DocFlow AI</title>
+  <meta name="description" content="AI-powered document intelligence and workflow automation">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="page-background"></div>
+
+  <!-- Login Container -->
+  <div class="flex-center" style="min-height: 100vh; padding: 2rem;">
+    <div class="card card-glass" style="max-width: 450px; width: 100%;">
+      <!-- Logo & Title -->
+      <div class="text-center mb-lg">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+        <h1 class="text-gradient" style="margin-bottom: 0.5rem;">DocFlow AI</h1>
+        <p class="text-muted">AI-Powered Document Intelligence</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input 
+            type="text" 
+            id="username" 
+            class="form-input" 
+            placeholder="Enter your username"
+            required
+            autocomplete="username"
+          >
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input 
+            type="password" 
+            id="password" 
+            class="form-input" 
+            placeholder="Enter your password"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">
+          <span>Login</span>
+          <span>→</span>
+        </button>
+      </form>
+
+      <!-- Demo Credentials -->
+      <div class="mt-lg" style="padding-top: 1.5rem; border-top: 1px solid var(--border);">
+        <p class="text-muted text-center" style="font-size: 0.875rem; margin-bottom: 1rem;">Demo Credentials:</p>
+        <div style="display: grid; gap: 0.75rem; font-size: 0.875rem;">
+          <div class="card" style="padding: 0.75rem; cursor: pointer;" onclick="fillCredentials('admin', 'admin123')">
+            <div class="flex-between">
+              <div>
+                <strong>Admin</strong>
+                <div class="text-muted" style="font-size: 0.75rem;">Full system access</div>
+              </div>
+              <span class="role-tag role-admin">Admin</span>
+            </div>
+          </div>
+          <div class="card" style="padding: 0.75rem; cursor: pointer;" onclick="fillCredentials('reviewer', 'reviewer123')">
+            <div class="flex-between">
+              <div>
+                <strong>Reviewer</strong>
+                <div class="text-muted" style="font-size: 0.75rem;">Review & approve documents</div>
+              </div>
+              <span class="role-tag role-reviewer">Reviewer</span>
+            </div>
+          </div>
+          <div class="card" style="padding: 0.75rem; cursor: pointer;" onclick="fillCredentials('user', 'user123')">
+            <div class="flex-between">
+              <div>
+                <strong>User</strong>
+                <div class="text-muted" style="font-size: 0.75rem;">Upload & view own documents</div>
+              </div>
+              <span class="role-tag role-user">User</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Info -->
+      <div class="mt-md text-center">
+        <p class="text-muted" style="font-size: 0.75rem;">
+          Prototype System • LocalStorage Only • Academic Demo
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Prevent default auth redirect for login page
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check if already logged in
+      if (Auth.isAuthenticated()) {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      // Handle login form submission
+      const loginForm = document.getElementById('loginForm');
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        // Show loading state
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Logging in...</span>';
+        
+        // Simulate network delay
+        setTimeout(() => {
+          const result = Auth.login(username, password);
+          
+          if (result.success) {
+            // Show success message
+            showToast('Login successful! Redirecting...', 'success');
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 1000);
+          } else {
+            // Show error
+            showToast(result.message, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            // Shake animation
+            loginForm.style.animation = 'shake 0.5s';
+            setTimeout(() => {
+              loginForm.style.animation = '';
+            }, 500);
+          }
+        }, 500);
+      });
+    });
+
+    // Fill credentials helper
+    function fillCredentials(username, password) {
+      document.getElementById('username').value = username;
+      document.getElementById('password').value = password;
+      document.getElementById('username').focus();
+    }
+
+    // Simple toast notification for login page
+    function showToast(message, type = 'info') {
+      // Create toast container if it doesn't exist
+      let container = document.querySelector('.toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+      }
+
+      // Create toast
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `
+        <span>${getToastIcon(type)}</span>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      // Remove after 3 seconds
+      setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function getToastIcon(type) {
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
+      return icons[type] || icons.info;
+    }
+
+    // Shake animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+      }
+      @keyframes slideOutRight {
+        to { transform: translateX(120%); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>

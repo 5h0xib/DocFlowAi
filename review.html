@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Queue - DocFlow AI</title>
+    <meta name="description" content="Review and approve documents">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="page-background"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">
+                <span>📄</span>
+                <span>DocFlow AI</span>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="upload.html" class="navbar-link">Upload</a></li>
+                <li><a href="review.html" class="navbar-link active">Review</a></li>
+                <li><a href="reports.html" class="navbar-link">Reports</a></li>
+                <li>
+                    <div class="user-badge">
+                        <span id="user-name">User</span>
+                        <span id="user-role" class="role-tag">User</span>
+                    </div>
+                </li>
+                <li><button class="btn btn-secondary btn-sm" onclick="Auth.logout()">Logout</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+        <div class="flex-between mb-lg">
+            <div>
+                <h1>Review Queue 🔍</h1>
+                <p class="text-muted">Documents requiring manual review</p>
+            </div>
+            <button class="btn btn-secondary" onclick="loadPendingDocuments()">
+                <span>🔄</span>
+                <span>Refresh</span>
+            </button>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-3 mb-lg" id="review-stats">
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-pending"
+                    style="background: var(--warning-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    0</div>
+                <div class="stat-label">Pending Review</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-approved-today"
+                    style="background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    0</div>
+                <div class="stat-label">Approved Today</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-avg-risk">0</div>
+                <div class="stat-label">Avg Risk Score</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card card-glass mb-lg">
+            <div class="card-body">
+                <div class="grid grid-3 gap-md">
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Sort By</label>
+                        <select id="sortBy" class="form-select" onchange="applySorting()">
+                            <option value="date-desc">Newest First</option>
+                            <option value="date-asc">Oldest First</option>
+                            <option value="risk-desc">Highest Risk</option>
+                            <option value="risk-asc">Lowest Risk</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Document Type</label>
+                        <select id="filterType" class="form-select" onchange="applyFilters()">
+                            <option value="all">All Types</option>
+                            <option value="invoice">Invoices</option>
+                            <option value="contract">Contracts</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Risk Level</label>
+                        <select id="filterRisk" class="form-select" onchange="applyFilters()">
+                            <option value="all">All Levels</option>
+                            <option value="high">High (7-10)</option>
+                            <option value="medium">Medium (4-6)</option>
+                            <option value="low">Low (0-3)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documents List -->
+        <div class="card card-glass">
+            <div class="card-header">
+                <h3 class="card-title">Documents Pending Review</h3>
+            </div>
+            <div class="card-body">
+                <div id="pending-documents">
+                    <p class="text-center text-muted">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/audit.js"></script>
+    <script src="js/workflow.js"></script>
+
+    <script>
+        let currentUser = null;
+        let allDocuments = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            currentUser = Auth.getCurrentUser();
+
+            // Require reviewer or admin role
+            if (!Auth.hasAnyRole(['reviewer', 'admin'])) {
+                UI.showToast('Access denied. Reviewer role required.', 'error');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 2000);
+                return;
+            }
+
+            initializePage();
+            loadPendingDocuments();
+        });
+
+        function initializePage() {
+            document.getElementById('user-name').textContent = currentUser.fullName;
+            document.getElementById('user-role').textContent = currentUser.role;
+            document.getElementById('user-role').className = `role-tag role-${currentUser.role}`;
+        }
+
+        function loadPendingDocuments() {
+            allDocuments = Workflow.getPendingReviews();
+            updateStatistics();
+            applyFilters();
+        }
+
+        function updateStatistics() {
+            const stats = Workflow.getStatistics();
+            document.getElementById('stat-pending').textContent = stats.pending;
+
+            // Approved today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const approvedToday = Storage.getDocuments().filter(d =>
+                d.status === 'approved' &&
+                new Date(d.reviewedAt) >= today
+            ).length;
+            document.getElementById('stat-approved-today').textContent = approvedToday;
+
+            // Average risk of pending documents
+            const avgRisk = allDocuments.length > 0
+                ? (allDocuments.reduce((sum, d) => sum + (d.riskScore || 0), 0) / allDocuments.length).toFixed(1)
+                : 0;
+            document.getElementById('stat-avg-risk').textContent = avgRisk;
+        }
+
+        function applyFilters() {
+            let filtered = [...allDocuments];
+
+            // Filter by type
+            const typeFilter = document.getElementById('filterType').value;
+            if (typeFilter !== 'all') {
+                filtered = filtered.filter(d => d.type === typeFilter);
+            }
+
+            // Filter by risk
+            const riskFilter = document.getElementById('filterRisk').value;
+            if (riskFilter === 'high') {
+                filtered = filtered.filter(d => d.riskScore >= 7);
+            } else if (riskFilter === 'medium') {
+                filtered = filtered.filter(d => d.riskScore >= 4 && d.riskScore < 7);
+            } else if (riskFilter === 'low') {
+                filtered = filtered.filter(d => d.riskScore < 4);
+            }
+
+            applySorting(filtered);
+        }
+
+        function applySorting(documents = null) {
+            let sorted = documents || allDocuments;
+            const sortBy = document.getElementById('sortBy').value;
+
+            switch (sortBy) {
+                case 'date-desc':
+                    sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    break;
+                case 'date-asc':
+                    sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    break;
+                case 'risk-desc':
+                    sorted.sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0));
+                    break;
+                case 'risk-asc':
+                    sorted.sort((a, b) => (a.riskScore || 0) - (b.riskScore || 0));
+                    break;
+            }
+
+            renderDocuments(sorted);
+        }
+
+        function renderDocuments(documents) {
+            const container = document.getElementById('pending-documents');
+
+            if (documents.length === 0) {
+                container.innerHTML = `
+          <div class="text-center" style="padding: 3rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">✅</div>
+            <p class="text-muted">No documents pending review</p>
+            <p class="text-muted" style="font-size: 0.875rem;">All caught up!</p>
+          </div>
+        `;
+                return;
+            }
+
+            container.innerHTML = '';
+            documents.forEach(doc => {
+                const docCard = createDocumentReviewCard(doc);
+                container.appendChild(docCard);
+            });
+        }
+
+        function createDocumentReviewCard(doc) {
+            const uploader = Storage.getUserById(doc.uploadedBy);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.marginBottom = '1rem';
+
+            // Risk color
+            let riskColor = 'var(--success)';
+            if (doc.riskScore >= 7) riskColor = 'var(--danger)';
+            else if (doc.riskScore >= 4) riskColor = 'var(--warning)';
+
+            card.innerHTML = `
+        <div style="display: flex; gap: 1.5rem;">
+          <div style="font-size: 3rem;">${getDocumentIcon(doc.type)}</div>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+              <div>
+                <h4 style="margin: 0 0 0.25rem 0;">${doc.name}</h4>
+                <p class="text-muted" style="font-size: 0.875rem; margin: 0;">
+                  Uploaded by ${uploader ? uploader.fullName : 'Unknown'} • ${UI.formatDate(doc.createdAt)}
+                </p>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: ${riskColor}; margin-bottom: 0.25rem;">
+                  ${doc.riskScore}/10
+                </div>
+                <div class="text-muted" style="font-size: 0.75rem;">Risk Score</div>
+              </div>
+            </div>
+            
+            ${doc.workflowReason ? `
+              <div style="background: rgba(255, 193, 7, 0.1); border-left: 3px solid var(--warning); padding: 0.75rem; margin: 1rem 0; border-radius: 4px;">
+                <strong style="font-size: 0.875rem;">Flagged for Review:</strong>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: var(--text-secondary);">${doc.workflowReason}</p>
+              </div>
+            ` : ''}
+            
+            ${doc.summary ? `
+              <div style="margin: 1rem 0;">
+                <strong style="font-size: 0.875rem;">Summary:</strong>
+                <p style="margin: 0.25rem 0 0 0; color: var(--text-secondary); font-size: 0.875rem;">${doc.summary}</p>
+              </div>
+            ` : ''}
+            
+            ${doc.extractedFields && Object.keys(doc.extractedFields).length > 0 ? `
+              <div style="margin: 1rem 0;">
+                <strong style="font-size: 0.875rem;">Extracted Fields:</strong>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
+                  ${Object.entries(doc.extractedFields).slice(0, 4).map(([key, value]) => `
+                    <div style="background: rgba(255, 255, 255, 0.03); padding: 0.5rem; border-radius: 4px;">
+                      <div class="text-muted" style="font-size: 0.75rem;">${key}</div>
+                      <div style="font-size: 0.875rem;">${value}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+            
+            <div style="display: flex; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+              <button class="btn btn-primary" onclick="reviewDocument('${doc.id}')">
+                <span>🔍</span>
+                <span>Review Details</span>
+              </button>
+              <button class="btn btn-success" onclick="quickApprove('${doc.id}')">
+                <span>✅</span>
+                <span>Quick Approve</span>
+              </button>
+              <button class="btn btn-danger" onclick="quickReject('${doc.id}')">
+                <span>❌</span>
+                <span>Reject</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+            return card;
+        }
+
+        function getDocumentIcon(type) {
+            return type === 'invoice' ? '🧾' : '📝';
+        }
+
+        function reviewDocument(docId) {
+            const doc = Storage.getDocumentById(docId);
+
+            const content = document.createElement('div');
+            content.innerHTML = `
+        <div style="max-height: 60vh; overflow-y: auto;">
+          <div style="margin-bottom: 1.5rem;">
+            <h4>Document Information</h4>
+            <p><strong>Type:</strong> ${doc.type}</p>
+            <p><strong>Risk Score:</strong> ${doc.riskScore}/10</p>
+            <p><strong>Uploaded:</strong> ${UI.formatDate(doc.createdAt)}</p>
+          </div>
+          
+          ${doc.extractedText ? `
+            <div style="margin-bottom: 1.5rem;">
+              <h4>Extracted Text</h4>
+              <div style="background: rgba(255, 255, 255, 0.05); padding: 1rem; border-radius: 8px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.875rem;">
+                ${doc.extractedText}
+              </div>
+            </div>
+          ` : ''}
+          
+          ${doc.extractedFields ? `
+            <div style="margin-bottom: 1.5rem;">
+              <h4>Extracted Fields</h4>
+              <table style="width: 100%; font-size: 0.875rem;">
+                ${Object.entries(doc.extractedFields).map(([key, value]) => `
+                  <tr>
+                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border);"><strong>${key}</strong></td>
+                    <td style="padding: 0.5rem; border-bottom: 1px solid var(--border); color: var(--text-secondary);">${value}</td>
+                  </tr>
+                `).join('')}
+              </table>
+            </div>
+          ` : ''}
+          
+          <div>
+            <h4>Review Decision</h4>
+            <div class="form-group">
+              <label class="form-label">Comments</label>
+              <textarea id="review-comments" class="form-textarea" placeholder="Enter review comments..."></textarea>
+            </div>
+          </div>
+        </div>
+      `;
+
+            const buttons = [
+                { text: 'Cancel', className: 'btn-secondary' },
+                {
+                    text: '❌ Reject',
+                    className: 'btn-danger',
+                    onClick: () => {
+                        const comments = document.getElementById('review-comments').value;
+                        handleReject(docId, comments);
+                    },
+                    closeOnClick: false
+                },
+                {
+                    text: '✅ Approve',
+                    className: 'btn-success',
+                    onClick: () => {
+                        const comments = document.getElementById('review-comments').value;
+                        handleApprove(docId, comments);
+                    },
+                    closeOnClick: false
+                }
+            ];
+
+            UI.showModal(`Review: ${doc.name}`, content, buttons);
+        }
+
+        function quickApprove(docId) {
+            UI.confirm('Approve this document?', () => {
+                handleApprove(docId, 'Quick approved');
+            });
+        }
+
+        function quickReject(docId) {
+            const content = document.createElement('div');
+            content.innerHTML = `
+        <p style="margin-bottom: 1rem;">Please provide a reason for rejection:</p>
+        <textarea id="reject-reason" class="form-textarea" placeholder="Rejection reason (required)..." required></textarea>
+      `;
+
+            const buttons = [
+                { text: 'Cancel', className: 'btn-secondary' },
+                {
+                    text: 'Reject Document',
+                    className: 'btn-danger',
+                    onClick: () => {
+                        const reason = document.getElementById('reject-reason').value;
+                        if (!reason.trim()) {
+                            UI.showToast('Rejection reason is required', 'error');
+                            return;
+                        }
+                        handleReject(docId, reason);
+                    },
+                    closeOnClick: false
+                }
+            ];
+
+            UI.showModal('Reject Document', content, buttons);
+        }
+
+        function handleApprove(docId, comments) {
+            try {
+                Workflow.approveDocument(docId, currentUser.id, comments);
+                UI.showToast('Document approved successfully', 'success');
+
+                // Close modal and reload
+                document.querySelector('.modal-overlay')?.remove();
+                setTimeout(() => loadPendingDocuments(), 500);
+            } catch (error) {
+                UI.showToast(error.message, 'error');
+            }
+        }
+
+        function handleReject(docId, reason) {
+            try {
+                Workflow.rejectDocument(docId, currentUser.id, reason);
+                UI.showToast('Document rejected', 'warning');
+
+                // Close modal and reload
+                document.querySelector('.modal-overlay')?.remove();
+                setTimeout(() => loadPendingDocuments(), 500);
+            } catch (error) {
+                UI.showToast(error.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

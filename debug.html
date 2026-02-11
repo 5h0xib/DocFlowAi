@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Tool - DocFlow AI</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .debug-section {
+            background: #16213e;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #0f3460;
+        }
+
+        button {
+            background: #533483;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #7209b7;
+        }
+
+        pre {
+            background: #0f0f23;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .success {
+            color: #4ecca3;
+        }
+
+        .error {
+            color: #ee5a6f;
+        }
+
+        .warning {
+            color: #f8b500;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔧 DocFlow AI Debug Tool</h1>
+
+    <div class="debug-section">
+        <h2>Library Status</h2>
+        <button onclick="checkLibraries()">Check Libraries</button>
+        <pre id="library-status"></pre>
+    </div>
+
+    <div class="debug-section">
+        <h2>LocalStorage Data</h2>
+        <button onclick="checkStorage()">Check Storage</button>
+        <button onclick="clearStorage()" style="background: #c1121f;">Clear All Data</button>
+        <pre id="storage-data"></pre>
+    </div>
+
+    <div class="debug-section">
+        <h2>Document List</h2>
+        <button onclick="listDocuments()">List Documents</button>
+        <button onclick="addTestDocument()">Add Test Document</button>
+        <pre id="document-list"></pre>
+    </div>
+
+    <div class="debug-section">
+        <h2>Console Log</h2>
+        <pre id="console-log"></pre>
+    </div>
+
+    <!-- Load required scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/compromise@14.9.0/builds/compromise.min.js"
+        onerror="this.onerror=null; this.src='https://unpkg.com/compromise@14.9.0/builds/compromise.min.js'"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/audit.js"></script>
+    <script src="js/ocr.js"></script>
+    <script src="js/nlp.js"></script>
+    <script src="js/workflow.js"></script>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            const consoleLog = document.getElementById('console-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            consoleLog.innerHTML += `<div class="${className}">[${timestamp}] ${msg}</div>`;
+            console.log(msg);
+        };
+
+        function checkLibraries() {
+            const output = document.getElementById('library-status');
+            let html = '';
+
+            html += '<strong>External Libraries:</strong>\n';
+            html += `Tesseract: ${typeof Tesseract !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `compromise (nlp): ${typeof nlp !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n\n`;
+
+            html += '<strong>Internal Modules:</strong>\n';
+            html += `Storage: ${typeof Storage !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `Auth: ${typeof Auth !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `UI: ${typeof UI !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `Audit: ${typeof Audit !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `OCR: ${typeof OCR !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `NLP: ${typeof NLP !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+            html += `Workflow: ${typeof Workflow !== 'undefined' ? '<span class="success">✓ Loaded</span>' : '<span class="error">✗ Not Loaded</span>'}\n`;
+
+            if (typeof Audit !== 'undefined' && Audit.Actions) {
+                html += '\n<strong>Audit Actions Available:</strong>\n';
+                html += Object.keys(Audit.Actions).join(', ') + '\n';
+            }
+
+            output.innerHTML = html;
+            log('Library check complete', 'success');
+        }
+
+        function checkStorage() {
+            const output = document.getElementById('storage-data');
+            let html = '<strong>LocalStorage Contents:</strong>\n\n';
+
+            try {
+                const keys = Object.keys(localStorage);
+                html += `Total Keys: ${keys.length}\n\n`;
+
+                keys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    html += `<strong>${key}:</strong>\n`;
+                    try {
+                        const parsed = JSON.parse(value);
+                        if (Array.isArray(parsed)) {
+                            html += `  Array with ${parsed.length} items\n`;
+                        } else {
+                            html += `  ${JSON.stringify(parsed, null, 2).substring(0, 200)}...\n`;
+                        }
+                    } catch {
+                        html += `  ${value.substring(0, 100)}...\n`;
+                    }
+                    html += '\n';
+                });
+
+                // Storage size
+                let totalSize = 0;
+                for (let key in localStorage) {
+                    if (localStorage.hasOwnProperty(key)) {
+                        totalSize += localStorage[key].length + key.length;
+                    }
+                }
+                html += `<strong>Total Size:</strong> ${(totalSize / 1024).toFixed(2)} KB\n`;
+
+            } catch (error) {
+                html += `<span class="error">Error: ${error.message}</span>\n`;
+            }
+
+            output.innerHTML = html;
+            log('Storage check complete', 'success');
+        }
+
+        function listDocuments() {
+            const output = document.getElementById('document-list');
+
+            try {
+                if (typeof Storage === 'undefined') {
+                    output.innerHTML = '<span class="error">Storage module not loaded!</span>';
+                    return;
+                }
+
+                const docs = Storage.getDocuments();
+                let html = `<strong>Total Documents:</strong> ${docs.length}\n\n`;
+
+                if (docs.length === 0) {
+                    html += '<span class="warning">No documents found in storage.</span>\n';
+                } else {
+                    docs.forEach((doc, i) => {
+                        html += `<strong>${i + 1}. ${doc.name}</strong>\n`;
+                        html += `   ID: ${doc.id}\n`;
+                        html += `   Type: ${doc.type}\n`;
+                        html += `   Status: ${doc.status}\n`;
+                        html += `   Uploaded: ${new Date(doc.createdAt).toLocaleString()}\n`;
+                        html += `   Risk Score: ${doc.riskScore || 'N/A'}\n`;
+                        html += '\n';
+                    });
+                }
+
+                output.innerHTML = html;
+                log(`Found ${docs.length} documents`, docs.length > 0 ? 'success' : 'warning');
+
+            } catch (error) {
+                output.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                log(`Error listing documents: ${error.message}`, 'error');
+            }
+        }
+
+        function addTestDocument() {
+            try {
+                const testDoc = Storage.addDocument({
+                    name: 'TEST_DOCUMENT.pdf',
+                    type: 'invoice',
+                    status: 'approved',
+                    uploadedBy: 'test-user',
+                    fileSize: 1024,
+                    fileType: 'application/pdf',
+                    extractedText: 'This is a test document',
+                    extractedFields: {
+                        'Invoice Number': 'TEST-001',
+                        'Amount': '$100.00',
+                        'Date': new Date().toISOString().split('T')[0]
+                    },
+                    summary: 'This is a test document for debugging.',
+                    riskScore: 2,
+                    keywords: ['test', 'debug']
+                });
+
+                log('Test document added successfully', 'success');
+                listDocuments();
+
+            } catch (error) {
+                log(`Error adding test document: ${error.message}`, 'error');
+            }
+        }
+
+        function clearStorage() {
+            if (confirm('Are you sure you want to clear ALL localStorage data? This cannot be undone!')) {
+                localStorage.clear();
+                log('All localStorage data cleared', 'warning');
+                checkStorage();
+                listDocuments();
+            }
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('Debug tool loaded', 'success');
+                checkLibraries();
+                listDocuments();
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>

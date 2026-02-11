@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Reports - DocFlow AI</title>
+    <meta name="description" content="Audit trail and reporting">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="page-background"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">
+                <span>📄</span>
+                <span>DocFlow AI</span>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html" class="navbar-link">Dashboard</a></li>
+                <li><a href="upload.html" class="navbar-link">Upload</a></li>
+                <li id="nav-review"><a href="review.html" class="navbar-link">Review</a></li>
+                <li><a href="reports.html" class="navbar-link active">Reports</a></li>
+                <li>
+                    <div class="user-badge">
+                        <span id="user-name">User</span>
+                        <span id="user-role" class="role-tag">User</span>
+                    </div>
+                </li>
+                <li><button class="btn btn-secondary btn-sm" onclick="Auth.logout()">Logout</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+        <div class="flex-between mb-lg">
+            <div>
+                <h1>Audit Reports 📊</h1>
+                <p class="text-muted">Complete audit trail and system analytics</p>
+            </div>
+            <button class="btn btn-primary" onclick="exportAuditLogs()">
+                <span>📥</span>
+                <span>Export CSV</span>
+            </button>
+        </div>
+
+        <!-- System Statistics -->
+        <div class="card card-glass mb-lg">
+            <div class="card-header">
+                <h3 class="card-title">System Statistics</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-4 gap-md">
+                    <div class="text-center">
+                        <div style="font-size: 2rem; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;"
+                            id="total-docs">0</div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Total Documents</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="font-size: 2rem; font-weight: 700; background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;"
+                            id="auto-approved">0</div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Auto-Approved</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="font-size: 2rem; font-weight: 700; background: var(--warning-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;"
+                            id="manual-reviewed">0</div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Manually Reviewed</div>
+                    </div>
+                    <div class="text-center">
+                        <div style="font-size: 2rem; font-weight: 700; background: var(--danger-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;"
+                            id="total-logs">0</div>
+                        <div class="text-muted" style="font-size: 0.875rem;">Audit Logs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workflow Analytics -->
+        <div class="grid grid-2 mb-lg">
+            <div class="card card-glass">
+                <div class="card-header">
+                    <h3 class="card-title">Document Status</h3>
+                </div>
+                <div class="card-body">
+                    <div id="status-breakdown"></div>
+                </div>
+            </div>
+
+            <div class="card card-glass">
+                <div class="card-header">
+                    <h3 class="card-title">Activity Summary</h3>
+                </div>
+                <div class="card-body">
+                    <div id="activity-summary"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card card-glass mb-lg">
+            <div class="card-body">
+                <div class="grid grid-4 gap-md">
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Filter by Action</label>
+                        <select id="filter-action" class="form-select" onchange="applyFilters()">
+                            <option value="all">All Actions</option>
+                            <option value="upload_document">Upload</option>
+                            <option value="approve">Approve</option>
+                            <option value="reject">Reject</option>
+                            <option value="auto_approve">Auto-Approve</option>
+                            <option value="ocr_complete">OCR Complete</option>
+                            <option value="nlp_process">NLP Process</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Filter by User</label>
+                        <select id="filter-user" class="form-select" onchange="applyFilters()">
+                            <option value="all">All Users</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Search</label>
+                        <input type="text" id="search-input" class="form-input" placeholder="Search logs..."
+                            oninput="applyFilters()">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-secondary" style="width: 100%;" onclick="clearFilters()">Clear
+                            Filters</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audit Log Table -->
+        <div class="card card-glass">
+            <div class="card-header">
+                <h3 class="card-title">Audit Trail</h3>
+                <span class="text-muted" style="font-size: 0.875rem;">Showing <span id="log-count">0</span>
+                    entries</span>
+            </div>
+            <div class="card-body">
+                <div id="audit-table"></div>
+            </div>
+        </div>
+
+        <!-- Storage Info -->
+        <div class="card card-glass mt-lg">
+            <div class="card-header">
+                <h3 class="card-title">Storage Information</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-3 gap-md">
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem; margin-bottom: 0.5rem;">Total Storage Used</p>
+                        <p style="font-size: 1.25rem; font-weight: 600;" id="storage-size">0 KB</p>
+                    </div>
+                    <div>
+                        <p class="text-muted" style="font-size: 0.875rem; margin-bottom: 0.5rem;">Percentage Used</p>
+                        <p style="font-size: 1.25rem; font-weight: 600;" id="storage-percent">0%</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary" style="width: 100%; margin-top: 1.25rem;"
+                            onclick="showStorageDetails()">
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/audit.js"></script>
+    <script src="js/workflow.js"></script>
+
+    <script>
+        let currentUser = null;
+        let allLogs = [];
+        let filteredLogs = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            currentUser = Auth.getCurrentUser();
+
+            initializePage();
+            loadStatistics();
+            loadAuditLogs();
+            populateUserFilter();
+            updateStorageInfo();
+        });
+
+        function initializePage() {
+            document.getElementById('user-name').textContent = currentUser.fullName;
+            document.getElementById('user-role').textContent = currentUser.role;
+            document.getElementById('user-role').className = `role-tag role-${currentUser.role}`;
+
+            if (currentUser.role === 'user') {
+                document.getElementById('nav-review').style.display = 'none';
+            }
+        }
+
+        function loadStatistics() {
+            const stats = Workflow.getStatistics();
+
+            document.getElementById('total-docs').textContent = stats.total;
+            document.getElementById('auto-approved').textContent = stats.autoApproved;
+            document.getElementById('manual-reviewed').textContent = stats.manuallyReviewed;
+
+            const auditStats = Audit.getStatistics();
+            document.getElementById('total-logs').textContent = auditStats.totalLogs;
+
+            // Status breakdown
+            const statusHtml = `
+        <div style="display: grid; gap: 0.75rem;">
+          ${renderStatItem('Approved', stats.approved, 'var(--success)')}
+          ${renderStatItem('Pending Review', stats.pending, 'var(--warning)')}
+          ${renderStatItem('Rejected', stats.rejected, 'var(--danger)')}
+          ${renderStatItem('Processing', stats.processing, 'var(--info)')}
+        </div>
+      `;
+            document.getElementById('status-breakdown').innerHTML = statusHtml;
+
+            // Activity summary
+            const activityHtml = `
+        <div style="display: grid; gap: 0.75rem;">
+          ${Object.entries(auditStats.byAction).map(([action, count]) =>
+                renderStatItem(formatAction(action), count, 'var(--primary)')
+            ).join('')}
+        </div>
+      `;
+            document.getElementById('activity-summary').innerHTML = activityHtml;
+        }
+
+        function renderStatItem(label, value, color) {
+            return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: rgba(255, 255, 255, 0.03); border-radius: 8px;">
+          <span style="font-size: 0.875rem;">${label}</span>
+          <span style="font-size: 1.25rem; font-weight: 700; color: ${color};">${value}</span>
+        </div>
+      `;
+        }
+
+        function formatAction(action) {
+            return action.split('_').map(word =>
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        function loadAuditLogs() {
+            allLogs = Audit.getLogs();
+
+            // Sort by most recent
+            allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            applyFilters();
+        }
+
+        function populateUserFilter() {
+            const users = Storage.getUsers();
+            const select = document.getElementById('filter-user');
+
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.fullName;
+                select.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const actionFilter = document.getElementById('filter-action').value;
+            const userFilter = document.getElementById('filter-user').value;
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+            filteredLogs = allLogs.filter(log => {
+                // Action filter
+                if (actionFilter !== 'all' && log.action !== actionFilter) {
+                    return false;
+                }
+
+                // User filter
+                if (userFilter !== 'all' && log.userId !== userFilter) {
+                    return false;
+                }
+
+                // Search filter
+                if (searchTerm) {
+                    const searchString = [
+                        log.userName,
+                        log.action,
+                        log.documentName,
+                        log.details,
+                        log.comments
+                    ].join(' ').toLowerCase();
+
+                    if (!searchString.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            renderAuditTable();
+        }
+
+        function clearFilters() {
+            document.getElementById('filter-action').value = 'all';
+            document.getElementById('filter-user').value = 'all';
+            document.getElementById('search-input').value = '';
+            applyFilters();
+        }
+
+        function renderAuditTable() {
+            document.getElementById('log-count').textContent = filteredLogs.length;
+
+            const columns = [
+                { label: 'Timestamp', field: 'timestamp', render: (val) => UI.formatDate(val) },
+                { label: 'User', field: 'userName' },
+                { label: 'Action', field: 'action', render: (val) => formatAction(val) },
+                { label: 'Document', field: 'documentName', render: (val) => val || 'N/A' },
+                { label: 'Details', field: 'details' },
+                { label: 'Comments', field: 'comments', render: (val) => val || '-' }
+            ];
+
+            UI.renderTable('audit-table', columns, filteredLogs);
+        }
+
+        function exportAuditLogs() {
+            const csv = Audit.exportToCSV();
+            const filename = `docflow_audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+            UI.downloadFile(csv, filename, 'text/csv');
+            UI.showToast('Audit logs exported successfully', 'success');
+        }
+
+        function updateStorageInfo() {
+            const info = Storage.getStorageInfo();
+            document.getElementById('storage-size').textContent = info.sizeKB + ' KB';
+            document.getElementById('storage-percent').textContent = info.percentage + '%';
+        }
+
+        function showStorageDetails() {
+            const info = Storage.getStorageInfo();
+            const data = Storage.exportData();
+
+            const content = `
+        <div style="display: grid; gap: 1rem;">
+          <div>
+            <strong>Total Size:</strong> ${info.sizeMB} MB (${info.sizeKB} KB)
+          </div>
+          <div>
+            <strong>Percentage Used:</strong> ${info.percentage}% of ~5MB quota
+          </div>
+          <div>
+            <strong>Documents:</strong> ${data.documents.length}
+          </div>
+          <div>
+            <strong>Audit Logs:</strong> ${data.auditLogs.length}
+          </div>
+          <div>
+            <strong>Users:</strong> ${data.users.length}
+          </div>
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+            <p class="text-muted" style="font-size: 0.875rem;">
+              ⚠️ LocalStorage has a limit of approximately 5-10MB. 
+              If you exceed this limit, older data may need to be cleared.
+            </p>
+          </div>
+        </div>
+      `;
+
+            const buttons = [
+                { text: 'Close', className: 'btn-secondary' },
+                {
+                    text: 'Export All Data',
+                    className: 'btn-primary',
+                    onClick: () => {
+                        const json = JSON.stringify(data, null, 2);
+                        const filename = `docflow_backup_${new Date().toISOString().split('T')[0]}.json`;
+                        UI.downloadFile(json, filename, 'application/json');
+                        UI.showToast('Data exported successfully', 'success');
+                    }
+                }
+            ];
+
+            UI.showModal('Storage Details', content, buttons);
+        }
+    </script>
+</body>
+
+</html>

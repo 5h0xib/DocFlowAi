@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DocFlow AI</title>
+    <meta name="description" content="AI-powered document intelligence dashboard">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="page-background"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">
+                <span>📄</span>
+                <span>DocFlow AI</span>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="dashboard.html" class="navbar-link active">Dashboard</a></li>
+                <li id="nav-upload"><a href="upload.html" class="navbar-link">Upload</a></li>
+                <li id="nav-review"><a href="review.html" class="navbar-link">Review</a></li>
+                <li id="nav-reports"><a href="reports.html" class="navbar-link">Reports</a></li>
+                <li>
+                    <div class="user-badge">
+                        <span id="user-name">User</span>
+                        <span id="user-role" class="role-tag">User</span>
+                    </div>
+                </li>
+                <li><button class="btn btn-secondary btn-sm" onclick="Auth.logout()">Logout</button></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+        <!-- Welcome Section -->
+        <div class="mb-lg">
+            <h1 style="margin-bottom: 0.5rem;">Welcome, <span id="welcome-name">User</span>! 👋</h1>
+            <p class="text-muted">Here's your document intelligence overview</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="grid grid-4 mb-lg" id="stats-grid">
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total Documents</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-pending"
+                    style="background: var(--warning-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    0</div>
+                <div class="stat-label">Pending Review</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-approved"
+                    style="background: var(--success-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    0</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-value" id="stat-rejected"
+                    style="background: var(--danger-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    0</div>
+                <div class="stat-label">Rejected</div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card card-glass mb-lg" id="quick-actions">
+            <div class="card-header">
+                <h3 class="card-title">Quick Actions</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-3 gap-md">
+                    <button class="btn btn-primary" onclick="window.location.href='upload.html'">
+                        <span>📤</span>
+                        <span>Upload Document</span>
+                    </button>
+                    <button class="btn btn-secondary" id="btn-view-pending" style="display: none;">
+                        <span>🔍</span>
+                        <span>Review Queue</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.location.href='reports.html'">
+                        <span>📊</span>
+                        <span>View Reports</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Documents -->
+        <div class="card card-glass">
+            <div class="card-header">
+                <h3 class="card-title">Recent Documents</h3>
+                <button class="btn btn-secondary btn-sm" onclick="loadDocuments()">
+                    <span>🔄</span>
+                    <span>Refresh</span>
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="documents-list">
+                    <p class="text-center text-muted">Loading documents...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/audit.js"></script>
+    <script>
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get current user
+            currentUser = Auth.getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Initialize dashboard
+            initializeDashboard();
+            loadStatistics();
+            loadDocuments();
+        });
+
+        function initializeDashboard() {
+            // Update user info in navbar
+            document.getElementById('user-name').textContent = currentUser.fullName;
+            document.getElementById('user-role').textContent = currentUser.role;
+            document.getElementById('user-role').className = `role-tag role-${currentUser.role}`;
+            document.getElementById('welcome-name').textContent = currentUser.fullName;
+
+            // Show/hide navigation items based on role
+            if (currentUser.role === 'user') {
+                // Hide review and reports for regular users
+                document.getElementById('nav-review').style.display = 'none';
+            }
+
+            // Show review button for reviewers and admins
+            if (currentUser.role === 'reviewer' || currentUser.role === 'admin') {
+                document.getElementById('btn-view-pending').style.display = 'flex';
+                document.getElementById('btn-view-pending').onclick = () => {
+                    window.location.href = 'review.html';
+                };
+            }
+        }
+
+        function loadStatistics() {
+            const stats = Storage.getStats();
+
+            // Update stat cards
+            document.getElementById('stat-total').textContent = stats.totalDocuments;
+            document.getElementById('stat-pending').textContent = stats.needsReview;
+            document.getElementById('stat-approved').textContent = stats.approved;
+            document.getElementById('stat-rejected').textContent = stats.rejected;
+
+            // Role-specific stats
+            if (currentUser.role === 'user') {
+                // Show only user's documents
+                const userDocs = Storage.getDocumentsByUser(currentUser.id);
+                document.getElementById('stat-total').textContent = userDocs.length;
+
+                const userStats = {
+                    pending: userDocs.filter(d => d.status === 'pending' || d.status === 'processing').length,
+                    approved: userDocs.filter(d => d.status === 'approved').length,
+                    rejected: userDocs.filter(d => d.status === 'rejected').length,
+                    needsReview: userDocs.filter(d => d.status === 'needs-review').length
+                };
+
+                document.getElementById('stat-pending').textContent = userStats.pending + userStats.needsReview;
+                document.getElementById('stat-approved').textContent = userStats.approved;
+                document.getElementById('stat-rejected').textContent = userStats.rejected;
+            }
+        }
+
+        function loadDocuments() {
+            const documentsContainer = document.getElementById('documents-list');
+
+            // Get documents based on role
+            let documents;
+            if (currentUser.role === 'admin' || currentUser.role === 'reviewer') {
+                documents = Storage.getDocuments();
+            } else {
+                documents = Storage.getDocumentsByUser(currentUser.id);
+            }
+
+            // Sort by most recent
+            documents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            // Take only the 10 most recent
+            const recentDocs = documents.slice(0, 10);
+
+            if (recentDocs.length === 0) {
+                documentsContainer.innerHTML = `
+          <div class="text-center" style="padding: 3rem;">
+            <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📄</div>
+            <p class="text-muted">No documents yet</p>
+            <button class="btn btn-primary mt-md" onclick="window.location.href='upload.html'">
+              Upload Your First Document
+            </button>
+          </div>
+        `;
+                return;
+            }
+
+            documentsContainer.innerHTML = '';
+
+            recentDocs.forEach(doc => {
+                const docItem = createDocumentItem(doc);
+                documentsContainer.appendChild(docItem);
+            });
+        }
+
+        function createDocumentItem(doc) {
+            const div = document.createElement('div');
+            div.className = 'document-item';
+            div.style.cursor = 'pointer';
+            div.onclick = () => viewDocument(doc.id);
+
+            const icon = getDocumentIcon(doc.type);
+            const uploader = Storage.getUserById(doc.uploadedBy);
+
+            div.innerHTML = `
+        <div class="document-icon">${icon}</div>
+        <div class="document-info" style="flex: 1;">
+          <div class="document-name">${doc.name}</div>
+          <div class="document-meta">
+            ${UI.formatDate(doc.createdAt)}
+            ${currentUser.role !== 'user' ? `• Uploaded by ${uploader ? uploader.fullName : 'Unknown'}` : ''}
+            ${doc.extractedFields ? `• ${Object.keys(doc.extractedFields).length} fields extracted` : ''}
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+          ${UI.renderStatusBadge(doc.status)}
+          ${doc.riskScore ? `<span class="text-muted" style="font-size: 0.875rem;">Risk: ${doc.riskScore}/10</span>` : ''}
+        </div>
+      `;
+
+            return div;
+        }
+
+        function getDocumentIcon(type) {
+            const icons = {
+                'invoice': '🧾',
+                'contract': '📝',
+                'pdf': '📄',
+                'image': '🖼️'
+            };
+            return icons[type] || '📄';
+        }
+
+        function viewDocument(docId) {
+            const doc = Storage.getDocumentById(docId);
+            if (!doc) return;
+
+            let content = `
+        <div style="margin-bottom: 1rem;">
+          <p><strong>Document:</strong> ${doc.name}</p>
+          <p><strong>Type:</strong> ${doc.type}</p>
+          <p><strong>Status:</strong> ${UI.renderStatusBadge(doc.status)}</p>
+          <p><strong>Uploaded:</strong> ${UI.formatDate(doc.createdAt)}</p>
+        </div>
+      `;
+
+            if (doc.extractedText) {
+                content += `
+          <div style="margin-bottom: 1rem;">
+            <strong>Extracted Text Preview:</strong>
+            <div style="max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-top: 0.5rem; font-family: monospace; font-size: 0.875rem;">
+              ${doc.extractedText.substring(0, 500)}${doc.extractedText.length > 500 ? '...' : ''}
+            </div>
+          </div>
+        `;
+            }
+
+            if (doc.extractedFields) {
+                content += `
+          <div style="margin-bottom: 1rem;">
+            <strong>Extracted Fields:</strong>
+            <ul style="margin-top: 0.5rem;">
+              ${Object.entries(doc.extractedFields).map(([key, value]) =>
+                    `<li><strong>${key}:</strong> ${value}</li>`
+                ).join('')}
+            </ul>
+          </div>
+        `;
+            }
+
+            if (doc.summary) {
+                content += `
+          <div style="margin-bottom: 1rem;">
+            <strong>AI Summary:</strong>
+            <p style="margin-top: 0.5rem; color: var(--text-secondary);">${doc.summary}</p>
+          </div>
+        `;
+            }
+
+            const buttons = [];
+
+            if (currentUser.role === 'admin' || currentUser.role === 'reviewer') {
+                if (doc.status === 'needs-review') {
+                    buttons.push({
+                        text: 'Review Document',
+                        className: 'btn-primary',
+                        onClick: () => {
+                            window.location.href = `review.html?docId=${doc.id}`;
+                        }
+                    });
+                }
+            }
+
+            buttons.push({
+                text: 'Close',
+                className: 'btn-secondary'
+            });
+
+            UI.showModal(doc.name, content, buttons);
+
+            // Log view action
+            if (typeof Audit !== 'undefined' && Audit.Actions) {
+                Audit.log({
+                    action: Audit.Actions.VIEW,
+                    documentId: doc.id,
+                    documentName: doc.name,
+                    details: `Viewed document details`
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>
